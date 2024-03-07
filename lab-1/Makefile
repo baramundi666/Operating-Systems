@@ -1,16 +1,18 @@
-CXX = gcc
-CFLAGS = -Wall
+CC = gcc
+CFLAGS = -Wall -std=c17
 
-.PHONY : clean
+.PHONY : all countdown clean
 
-all: countdown.c
-	@echo "all"
-	gcc countdown.c -o countdown
+all:
+	make countdown
+
 countdown: countdown.c
-	@echo "countdown"
-	gcc countdown.c -o countdown
+	@echo "countdown compilation"
+	$(CC) $(CFLAGS) -o $@ $< -g
+
 clean :
-	-rm edit $(objects)
+	@echo "clean compilation files"
+	rm countdown
 
 
 
