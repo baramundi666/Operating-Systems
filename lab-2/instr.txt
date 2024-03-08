@@ -1,0 +1,7 @@
+gcc -fPIC -c stringlibrary.c
+gcc -shared -o libstringlibrary.so stringlibrary.o -lc
+gcc main.c libstringlibrary.so -L ./ -Wl,-rpath,. -o main
+
+gcc -fPIC -c stringlibrary.c
+gcc -shared -o libstringlibrary.so stringlibrary.o -lc
+gcc -rdynamic main.c -L ./ -Wl,-rpath,. -o main
