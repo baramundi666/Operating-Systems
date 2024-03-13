@@ -1,7 +1,8 @@
 #include <stdio.h>
 
 #ifdef DYNAMIC
-#include "dlfcn.h"
+    #include <dlfcn.h>
+    #include <stddef.h>
 #endif
 
 int main() {
@@ -26,14 +27,14 @@ int main() {
         printf("Error!");
         return 1;
     }
-
-    printf("%d\n", collatz_conjecture(5));
-    printf("%d\n", test_collatz_convergence(10, 100));
-    dlclose(handle);
 #endif
 
     printf("%d\n", collatz_conjecture(5));
     printf("%d\n", test_collatz_convergence(10, 100));
+
+#ifdef DYNAMIC
+    dlclose(handle);
+#endif
     return 0;
 }
 
