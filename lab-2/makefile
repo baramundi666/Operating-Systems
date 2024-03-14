@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -std=c17 -Wall -g -O0
 BUILD_DIR = build
 
-.PHONY: all collatz_static collatz_shared clean
+.PHONY: all client_static client_shared client_dynamic clean
 
 all:
 	make client_static
