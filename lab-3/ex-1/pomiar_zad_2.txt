@@ -1,0 +1,10 @@
+Testy:
+1) plik binarny mutool z systemu Linux'owego, waga ~42,2 MB
+reverse_1: 5.411767 seconds
+reverse_1024: 0.085265 seconds
+2) plik binarny pobrany z internetu o wadze ~50MB
+reverse_1: 6.469964 seconds
+reverse_1024: 0.096457 seconds
+3) plik binarny pobrany z internetu o wadze ~100MB
+reverse_1: 12.183700 seconds
+reverse_1024: 0.194784 seconds
