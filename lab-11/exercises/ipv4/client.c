@@ -24,7 +24,7 @@ int main() {
     addr.sin_addr.s_addr = INADDR_ANY;
 
 
-    connect(sfd, (struct sockaddr*) &addr, sizeof(struct sockaddr_un));
+    connect(sfd, (struct sockaddr*) &addr, sizeof(struct sockaddr_in));
 
     size_t numRead;
     char buf[BUF_SIZE];
