@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <netinet/in.h>
-#include <sys/un.h>
-#include <arpa/inet.h>
 #include <pthread.h>
 
 #define BACKLOG 5
@@ -37,7 +35,6 @@ int main(int argc, char *argv[]) {
 
 
     sfd = socket(AF_INET, SOCK_STREAM, 0);
-    printf("Server socket: %d\n", sfd);
 
     memset(&server_addr, 0, sizeof(struct sockaddr_in));
     server_addr.sin_family = AF_INET;
@@ -51,7 +48,7 @@ int main(int argc, char *argv[]) {
 
     listen(sfd, BACKLOG);
 
-    pthread_t thread;
+    pthread_t thread[MAX_CLIENTS];
 
     for (;;) {
         // accept new client
@@ -60,7 +57,7 @@ int main(int argc, char *argv[]) {
         num_clients++;
 
         // too many clients
-        if(num_clients > MAX_CLIENTS) {\
+        if(num_clients > MAX_CLIENTS) {
             num_clients--;
             printf("Max clients!\n");
             close(cfd);
@@ -71,12 +68,12 @@ int main(int argc, char *argv[]) {
         client_t* client = (client_t*) malloc(sizeof(client_t));
         client->address = client_addr;
         client->fd = cfd;
-        client->id = num_clients;
 
         // add client
         pthread_mutex_lock(&clients_mutex);
         for(int i=0; i<MAX_CLIENTS; ++i) {
             if(!clients[i]) {
+                client->id = i;
                 clients[i] = client;
                 break;
             }
@@ -84,22 +81,13 @@ int main(int argc, char *argv[]) {
         pthread_mutex_unlock(&clients_mutex);
 
         // client thread
-        pthread_create(&thread, NULL, &handle_client, (void *) client);
+        pthread_create(&thread[client->id], NULL, &handle_client, (void *) client);
     }
 }
 
-void send_message_to_all_but(char *s, int id) {
-    pthread_mutex_lock(&clients_mutex);
-    for(int i = 0; i < MAX_CLIENTS; ++i) {
-        if(clients[i] && clients[i]->id != id) {
-            write(clients[i]->fd, s, strlen(s));
-        }
-    }
-    pthread_mutex_unlock(&clients_mutex);
-}
-
-void *handle_client(void *arg) {
-    char buffer[BUFFER_SIZE];
+void* handle_client(void *arg) {
+    char buffer[2*BUFFER_SIZE];
+    char msg[BUFFER_SIZE];
     char name[32];
     int stopped = 0;
 
@@ -110,7 +98,14 @@ void *handle_client(void *arg) {
     strcpy(client->name, name);
     sprintf(buffer, "%s has joined!\n", client->name);
     printf("%s", buffer);
-    send_message_to_all_but(buffer, client->id);
+
+    pthread_mutex_lock(&clients_mutex);
+    for(int i=0; i<MAX_CLIENTS; ++i) {
+        if(clients[i] && clients[i]->id != client->id) {
+            write(clients[i]->fd, buffer, strlen(buffer));
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
 
 
     bzero(buffer, BUFFER_SIZE);
@@ -122,7 +117,7 @@ void *handle_client(void *arg) {
         if(receive > 0) {
             if(strlen(buffer) > 0) {
                 char *command = strtok(buffer, " ");
-                if(strcmp(command, "LIST") == 0) {
+                if(strcmp(command, "LIST\0") == 0) {
                     char client_list[BUFFER_SIZE] = "Active clients: ";
 
                     pthread_mutex_lock(&clients_mutex);
@@ -137,12 +132,19 @@ void *handle_client(void *arg) {
 
                     send(client->fd, client_list, strlen(client_list), 0);
                 }
-                else if(strcmp(command, "2ALL") == 0) {
-                    char *msg = strtok(NULL, "");
-                    sprintf(buffer, "%s: %s\n", client->name, msg);
-                    send_message_to_all_but(buffer, client->id);
+                else if(strcmp(command, "2ALL\0") == 0) {
+                    sprintf(msg, "%s", strtok(NULL, ""));
+
+                    pthread_mutex_lock(&clients_mutex);
+                    for(int i=0; i<MAX_CLIENTS; ++i) {
+                        if(clients[i] && clients[i]->id != client->id) {
+                            sprintf(buffer, "%s: %s\n", client->name, msg);
+                            write(clients[i]->fd, buffer, strlen(buffer));
+                        }
+                    }
+                    pthread_mutex_unlock(&clients_mutex);
                 }
-                else if(strcmp(command, "2ONE") == 0) {
+                else if(strcmp(command, "2ONE\0") == 0) {
                     char *other_name = strtok(NULL, " ");
                     char *msg = strtok(NULL, "");
                     int other_id = -1;
@@ -151,7 +153,8 @@ void *handle_client(void *arg) {
                     for(int i=0; i<MAX_CLIENTS; ++i) {
                         if(clients[i] && strcmp(clients[i]->name, other_name) == 0) {
                             other_id = clients[i]->id;
-                            write(clients[i]->fd, msg, strlen(msg));
+                            sprintf(buffer, "%s: %s\n", client->name, msg);
+                            write(clients[i]->fd, buffer, strlen(buffer));
                             break;
                         }
                     }
@@ -164,8 +167,15 @@ void *handle_client(void *arg) {
                 }
                 else if(strcmp(command, "STOP") == 0) {
                     sprintf(buffer, "%s has left!\n", client->name);
-                    printf("%s", buffer);
-                    send_message_to_all_but(buffer, client->id);
+                    printf("%s\n", buffer);
+                    pthread_mutex_lock(&clients_mutex);
+                    for(int i=0; i<MAX_CLIENTS; ++i) {
+                        if(clients[i] && clients[i]->id != client->id) {
+                            write(clients[i]->fd, buffer, strlen(buffer));
+                        }
+                    }
+                    pthread_mutex_unlock(&clients_mutex);
+
                     stopped = 1;
                 }
                 else {
@@ -175,6 +185,7 @@ void *handle_client(void *arg) {
             }
         }
         bzero(buffer, BUFFER_SIZE);
+        bzero(msg, BUFFER_SIZE);
     }
 
     close(client->fd);

@@ -16,7 +16,11 @@ volatile sig_atomic_t flag = 0;
 int sfd;
 char name[32];
 
-void handle_sigint(int sig) {flag = 1;}
+void handle_sigint(int sig) {
+    char msg[5] = "STOP\0";
+    send(sfd, msg, strlen(msg), 0);
+    flag = 1;
+}
 void handle_send();
 void handle_receive();
 
@@ -32,7 +36,6 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in server_addr;
 
     sfd = socket(AF_INET, SOCK_STREAM, 0);
-    printf("Client socket: %d\n", sfd);
 
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -60,14 +63,15 @@ int main(int argc, char* argv[]) {
 }
 
 void handle_send() {
-    char buffer[BUFFER_SIZE] = {};
-//    char message[BUFFER_SIZE + 36] = {};
+    char buffer[BUFFER_SIZE];
 
     while(1) {
+        int size;
         fgets(buffer, BUFFER_SIZE, stdin);
         for(int i=0; i<BUFFER_SIZE; ++i) {
             if(buffer[i] == '\n') {
                 buffer[i] = '\0';
+                size = i+1;
                 break;
             }
         }
@@ -76,26 +80,21 @@ void handle_send() {
             break;
         }
         else {
-//            sprintf(message, "%s: %s\n", name, buffer);
-            send(sfd, buffer, strlen(buffer), 0);
+            send(sfd, buffer, size, 0);
         }
 
         bzero(buffer, BUFFER_SIZE);
-//        bzero(message, BUFFER_SIZE + 36);
     }
     handle_sigint(0);
 }
 
 void handle_receive() {
-    char message[BUFFER_SIZE] = {};
+    char message[BUFFER_SIZE];
     while(1) {
         int receive = recv(sfd, message, BUFFER_SIZE, 0);
         if(receive > 0) {
             printf("%s", message);
+            bzero(message, BUFFER_SIZE);
         }
-        else {
-            break;
-        }
-        memset(message, 0, sizeof(message));
     }
 }
